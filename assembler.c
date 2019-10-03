@@ -180,6 +180,7 @@ int main (int argc, char* argv[]) {
     if (argc != 2) {
         
         printf("Usage: ./assembler <assembly file>\n");
+	printf("chaejin\n");
         exit(0);
 
     } else {
