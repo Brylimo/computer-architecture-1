@@ -91,19 +91,20 @@ void read_asm () {
     char temp[0x1000] = {0};
     struct Sym *temp_sym = NULL;
     struct Data *temp_data = NULL;
-    struct Text *temp_text = NULL;
+    struct Text* temp_text = NULL;
 
     //Read .data region
     address = 0x10000000;
     for (i=0; scanf("%s", temp) == 1;) {
-       if (strcmp(temp, ".text") == 0) {
-           /* blank */
 
+       if (strcmp(temp, ".text") == 0) {
+	    break;
        } else if(temp[strlen(temp)-1] == ':') {
-           /* blank */
+	    
 
        } else if(strcmp(temp, ".word") == 0) {
-           /* blank */
+	
+           address += 4; 
        }
     }
 
@@ -112,15 +113,91 @@ void read_asm () {
     //Read .text region
     address = 0x400000;
     for (i=0; scanf("%s", temp) == 1;) {
-       if (temp[strlen(temp)-1] == ':') {
-           /* blank */
 
+       if (temp[strlen(temp)-1] == ':') {	
+	   address += 4;   
        } else {
-           /* blank */
+	  temp_text = (struct Text*)malloc(sizeof(struct Text));
+	  for (int i = 0; i < 20; i++)
+	  {
+	    if (strcmp(inst[i].name, temp)==0)
+	    {
+		address += 4;
+		if (inst[i].type == 'R')
+		{
+		 temp_text->idx = i;
+		 scanf("%s", temp_text->d);
+		 scanf("%s", temp_text->s); 
+	         scanf("%s", temp_text->t);
+		 temp_text->address = address;
+		 struct Text* cur = Texts;
+		 while (cur->next!=NULL)
+		 {
+		    cur = cur->next;
+		 }
+		 Texts->next = temp_text;
+		}
+		else if (inst[i].type == 'I')
+		{
+		 temp_text->idx = i;
+		 scanf("%s", temp_text->s);
+		 scanf("%s", temp_text->t);
+		 temp_text->address = address;
+		 struct Text* cur = Texts;
+		 while (cur->next!=NULL)
+		 {
+		    cur = cur->next;
+		 }
+		 Texts->next = temp_text;
+		}
+		else if(inst[i].type == 'J')
+		{
+		 temp_text->idx = i;
+		 temp_text->address = address;
+		 struct Text* cur = Texts;
+		 while(cur->next!=NULL)
+		 {
+		    cur = cur->next;
+		 }
+		 Texts->next = temp_text;
+		}
+	    }
+	  }  
+	  /* char mssg[33];
+	   int son = 0;
+	   for (int i = 0; i < 20; i++)
+	   {
+		if (strcmp(inst[i].name, temp) == 0)
+		{
+		    if (inst[i].type == 'R')
+		    {
+			for (son; son < 6; son++)
+			{
+			   mssg[son] =  inst[i].op[son];
+			}
+			for (son; son < 11; son++)
+			{
+			    char k[4];  scanf("%s", &k);
+
+			}
+					
+		    }
+		    else if (inst[i].type == 'I')
+		    {
+		    
+		    }
+		    else if (inst[i].type == 'J')
+		    {
+		    
+		    }
+		}
+	   }*/
        }
     }
 
     textsize = address - 0x400000;
+    printf("%s\n", NumToBits(textsize, 32));
+    printf("%s\n", NumToBits(datasize, 32));
 }
 
 /*
@@ -180,7 +257,6 @@ int main (int argc, char* argv[]) {
     if (argc != 2) {
         
         printf("Usage: ./assembler <assembly file>\n");
-	printf("chaejin\n");
         exit(0);
 
     } else {
@@ -188,7 +264,6 @@ int main (int argc, char* argv[]) {
         // reading the input file
         char *filename = (char *)malloc(strlen(argv[1]) + 3);
         strncpy(filename, argv[1], strlen(argv[1]));
-
         if (freopen(filename, "r", stdin) == 0) {
             printf("File open Error\n");
             exit(1);
@@ -199,8 +274,8 @@ int main (int argc, char* argv[]) {
 
         // creating the output file (*.o)
         filename[strlen(filename)-1] = 'o';
-        freopen(filename, "w", stdout);
-        
+	freopen(filename, "w", stdout);
+
         // Let's complete the below functions!
         read_asm();
         subst_asm_to_num();
