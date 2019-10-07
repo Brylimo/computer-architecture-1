@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 struct Inst{
     char *name;
@@ -58,6 +59,8 @@ struct Sym{
 struct Sym *Symbols;
 struct Text* Texts;
 int datasize, textsize;
+void hextonum(char* ptr, char plag[]);
+void bintonum (char* ptr, char plag[]);
 
 /*
  * You may need the following function
@@ -92,6 +95,7 @@ void read_asm () {
     struct Sym *temp_sym = NULL;
     struct Data *temp_data = NULL;
     struct Text* temp_text = NULL;
+    struct Sym *sym;
 
     //Read .data region
     address = 0x10000000;
@@ -142,8 +146,6 @@ void read_asm () {
 	    temp_sym = (struct Sym*)malloc(sizeof(struct Sym));
 	    temp_sym->name = (char*)malloc(sizeof(char));
 	    strncpy(temp_sym->name, temp, strlen(temp)-1);
-	    if (strcmp(temp_sym->name, "main")==0)
-		address += 4;
 	    temp_sym->address = address;
 	    struct Sym* cur = Symbols;
 	    while(cur->next!=NULL)
@@ -200,8 +202,11 @@ void read_asm () {
 		}
 		else if(inst[i].type == 'J')
 		{
+	         temp_text->d = (char*)malloc(sizeof(char));
 		 temp_text->idx = i;
 		 temp_text->address = address;
+		 scanf("%s", temp);
+		 strcpy(temp_text->d, temp);
 		 struct Text* cur = Texts;
 		 while(cur->next!=NULL)
 		 {
@@ -209,11 +214,31 @@ void read_asm () {
 		 }
 		 cur->next = temp_text;
 		}
+		else if (inst[i].type == 'S')
+		{
+		    temp_text->t = (char*)malloc(sizeof(char));
+		    temp_text->d = (char*)malloc(sizeof(char));
+		    temp_text->s = (char*)malloc(sizeof(char));
+		    temp_text->idx = i;
+		    temp_text->address = address;
+		    scanf("%s", temp);
+		    strcpy(temp_text->d, temp);
+		    scanf("%s", temp);
+		    strcpy(temp_text->t, temp);
+		    scanf("%s", temp);
+		    strcpy(temp_text->s, temp);
+		    struct Text* cur = Texts;
+		    while (cur->next!=NULL)
+		    {
+			cur = cur->next;
+		    }
+		    cur->next = temp_text;
+		}
 	    }
 	  }
 	  if (strcmp("la", temp)==0)
 	    {
-		address += 4;
+		int ck = 1;
 		temp_text = (struct Text*)malloc(sizeof(struct Text));
 		temp_text->t = (char*)malloc(sizeof(char));
 		temp_text->s = (char*)malloc(sizeof(char));
@@ -226,29 +251,53 @@ void read_asm () {
 		scanf("%s", austin);
 		strcpy(temp_text->d, austin);
 	        temp_text->address = address;
+		address += 4;
 		struct Text* cur = Texts;
 		while (cur->next!=NULL)
                 {
                     cur = cur->next;
                 }
                 cur->next = temp_text;
-		    
-		address += 4;
-	        temp_text = (struct Text*)malloc(sizeof(struct Text));
-		temp_text->s = (char*)malloc(sizeof(char));
-		temp_text->t = (char*)malloc(sizeof(char));
-		temp_text->d = (char*)malloc(sizeof(char));
-		temp_text->idx = 13;
-	        strcpy(temp_text->t, abbos);
-		strcpy(temp_text->s, abbos);
-		strcpy(temp_text->d, austin);
-	        temp_text->address = address;
-		cur = Texts;
-		while (cur->next!=NULL)
+		for (sym = Symbols->next; sym != NULL; sym = sym->next)
 		{
-		    cur = cur->next;
-                }
-	        cur->next = temp_text;
+		    if (strcmp(sym->name, temp_text->d)==0)
+		    {
+			char* plag = NumToBits(sym->address, 32);
+	                int u = 0;
+                        for (int k = 16; k < 32; k++)
+                        {
+                           if (plag[k]=='0')
+                           {
+                               u++;
+                           }
+                        }
+			if (u == 16)
+			{
+			    ck = -1;
+			}
+			break;
+		    }		
+		}
+
+		if (ck == 1)
+		{	    
+	          temp_text = (struct Text*)malloc(sizeof(struct Text));
+		  temp_text->s = (char*)malloc(sizeof(char));
+		  temp_text->t = (char*)malloc(sizeof(char));
+		  temp_text->d = (char*)malloc(sizeof(char));
+		  temp_text->idx = 13;
+	          strcpy(temp_text->t, abbos);
+		  strcpy(temp_text->s, abbos);
+		  strcpy(temp_text->d, austin);
+	          temp_text->address = address;
+		  address += 4;
+		  cur = Texts;
+		  while (cur->next!=NULL)
+		  {
+		      cur = cur->next;
+                  }
+	          cur->next = temp_text;
+		}
 	  }  			
        }
     }
@@ -263,7 +312,7 @@ void subst_asm_to_num () {
     struct Sym *sym;
 
     for (text = Texts->next; text != NULL; text = text->next) {
-       if (inst[text->idx].type == 'R')
+       if (inst[text->idx].type == 'R' || inst[text->idx].type == 'S')
        {
 	  if (text->d[0] == '$')
 	  {
@@ -302,31 +351,24 @@ void subst_asm_to_num () {
 		    check = 1;
 		    if (strcmp("lui", inst[text->idx].name)==0)
 		    {			
-			char* plag = NumToBits(sym->address, 32);
-			strncpy(text->d, plag, 16);
-			int u = 0;
-			for (int k = 16; k < 32; k++)
-			{
-			    if (plag[k]=='0')
-			    {
-				u++;
-			    }
-			}
-			if (u == 16)
-			{
-			    text->next = text->next->next;
-			    break;
-			}			    
+			char* ptr = NumToBits(sym->address, 32);
+			char* ptr1 = (char*)malloc(sizeof(char));
+			char plag[0x1000];
+			strncpy(ptr1, ptr, 16);
+			bintonum(ptr1, plag);
+			strcpy(text->d, plag);  			
 		    }
 		    else if (strcmp("ori", inst[text->idx].name)==0)
 		    {
-			char* plag = NumToBits(sym->address, 32);
+			char* ptr = NumToBits(sym->address, 32);
 			char dom[17] = {0, };
+			char plag[0x1000];
 			for (int i = 16, j = 0; i < 32; i++, j++)
 			{
-			    dom[j] = plag[i];
+			    dom[j] = ptr[i];
 			}
-			    strcpy(text->d, dom);
+			bintonum(dom, plag);
+			strcpy(text->d, plag);    
 		    }
 		    else
 		    {
@@ -344,13 +386,65 @@ void subst_asm_to_num () {
               if (text->d[0] == '0' && text->d[1] == 'x')
 	      {
                   char *ptr1 = strtok(text->d, "x");
-		  ptr1 = strtok(NULL, "x");  	  
-                  strcpy(text->d, ptr1);
+		  ptr1 = strtok(NULL, "x");
+		  char plag[0x1000];
+		  hextonum(ptr1, plag);  	  
+                  strcpy(text->d, plag);
 	      }                                    
            }
 	}	    
-       }	   
+       }
+      else if (inst[text->idx].type == 'J')
+      {
+	for (sym = Symbols->next; sym != NULL; sym = sym->next){
+	    if (strcmp(sym->name, text->d)==0)
+	    {
+		int q = sym->address / 4;
+		char limo[27];
+		sprintf(limo, "%d", q);
+		strcpy(text->d, limo);
+	    }	
+	}
+      }	  
     } 
+}
+
+void hextonum (char* ptr, char plag[])
+{
+    int decimal = 0, position = 0;
+    int len = strlen(ptr);
+    for (int i = len - 1; i >= 0; i--)
+    {
+	char ch = ptr[i];
+	if (ch >= 48 && ch <= 57)
+	{
+	    decimal += (ch - 48) * pow(16, position);
+	}
+	else if (ch >= 65 && ch <= 70)
+	{
+	    decimal += (ch - (65 - 10)) * pow(16, position);
+	}
+	else if (ch >= 97 && ch <= 102)
+	{
+	    decimal += (ch - (97 - 10)) * pow(16, position);
+	}
+
+	position++;
+    }
+    sprintf(plag, "%d", decimal);   
+}
+
+void bintonum (char* ptr, char plag[])
+{
+    int decimal = 0, position = 0;
+    int len = strlen(ptr);
+    for (int i = len - 1; i >= 0; i--)
+    {
+	char ch = ptr[i];
+	decimal += (ch - '0') * pow(2, position);
+	position++;
+    }
+    sprintf(plag, "%d", decimal);
 }
 
 /*
@@ -378,24 +472,21 @@ void print_bits () {
 
         } else if(inst[text->idx].type == 'I') {
              printf("%s", NumToBits(atoi(text->s), 5));
-	     printf("%s", NumToBits(atoi(text->t), 5));
-	     if (strcmp(inst[text->idx].name, "lui") == 0 || strcmp(inst[text->idx].name, "ori")==0)
-	     {
-		printf("%s", text->d);
-	     }
-	     else		 
-		printf("%s", NumToBits(atoi(text->d), 16));
-
+	     printf("%s", NumToBits(atoi(text->t), 5));		 
+	     printf("%s", NumToBits(atoi(text->d), 16));
         } else if(inst[text->idx].type == 'S') {
-            /* blank */
-
+	    printf("00000");
+	    printf("%s", NumToBits(atoi(text->t), 5));
+	    printf("%s", NumToBits(atoi(text->d), 5));
+	    printf("%s", NumToBits(atoi(text->s), 5));
+	    printf("%s", inst[text->idx].funct);
         } else {
-            /* blank */
+            printf("%s", NumToBits(atoi(text->d), 26));
         }
     }
 
     for (sym = Symbols->next; sym != NULL; sym = sym->next) {
-        /* blank */
+        
     }
     printf("\n");
 }
