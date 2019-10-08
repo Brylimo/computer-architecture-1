@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <math.h>
+#include <math.h>  //<math.h> 헤더를 사용하여 Makefile에 -lm 옵션을 추가하였습니다.
 
 struct Inst{
     char *name;
