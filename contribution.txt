@@ -1,0 +1,11 @@
+Chaejin Lim (6):
+      Add my name
+      made reading text part
+      roughly completed I processing part
+      completed text and data processing parts
+      successed all the sample input codes
+      submit(completed)
+
+Jonghyeon Kim (1):
+      Initial commit
+
