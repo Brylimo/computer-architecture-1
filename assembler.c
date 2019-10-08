@@ -19,7 +19,7 @@ struct Inst inst[22] = {
     {"bne", "000101", 'I', ""},
     {"j", "000010", 'J', ""},
     {"jal", "000011", 'J', ""},
-    {"jr", "000000", 'J',"001000"},
+    {"jr", "000000", 'R',"001000"},
     {"lui", "001111", 'I', ""},
     {"lw", "100011", 'I', ""},
     {"nor", "000000", 'R' , "100111"},
@@ -102,7 +102,13 @@ void read_asm () {
     for (i=0; scanf("%s", temp) == 1;) {
 
        if (strcmp(temp, ".text") == 0) {
-	    break;
+	   struct Sym* cur = Symbols;
+	   while (cur->next!=NULL)
+	   {
+	    cur = cur->next;
+	   }
+	   cur->next = temp_sym;
+	   break;
        } else if(temp[strlen(temp)-1] == ':') {
 	   struct Sym* cur = Symbols;
 	   while (cur->next!=NULL)
@@ -116,26 +122,35 @@ void read_asm () {
 	   temp_sym->address = address;
        } else if(strcmp(temp, ".word") == 0) {
 	   temp_data = (struct Data*)malloc(sizeof(struct Data));
-	   int input;	 scanf("%d", &input);
-	   temp_data->value = input;
-	   struct Data* cur = temp_sym->first;
-	   if (cur == NULL)
+	   scanf("%s", temp);	int joker;
+	   if (temp[0] == '0' && temp[1] == 'x')
 	   {
-	    cur = temp_data;
-	    temp_sym->size += 1;
-	    address = address + 4;
-	   }else{
-	   while (cur->next!=NULL)
+	      char *ptr1 = strtok(temp, "x");
+	      ptr1 = strtok(NULL, "x");
+	      char plag[0x1000];
+	      hextonum(ptr1, plag);
+	      joker = atoi(plag);
+	   }
+	   else
 	   {
-	      cur = cur->next;	     
-	   } 
-	   cur = temp_data;
+	     joker = atoi(temp);
+	   }
+	   temp_data->value = joker;
+	   temp_data->next = NULL;
+
+	   if (temp_sym->first==NULL)
+	   {
+	     temp_sym->first = temp_data;
+	   }
+	   else
+	   {
+	    temp_sym->last->next = temp_data;
+	   }
+	   temp_sym->last = temp_data;
 	   temp_sym->size += 1;
            address = address + 4; 
-	   }
-       }
+      }
     }
-
     datasize = address - 0x10000000;
    
     //Read .text region
@@ -166,12 +181,20 @@ void read_asm () {
 		 temp_text->d = (char*)malloc(sizeof(char));
 		 temp_text->s = (char*)malloc(sizeof(char));
 		 temp_text->t = (char*)malloc(sizeof(char));
-		 scanf("%s", temp);
-		 strcpy(temp_text->d, temp);
-		 scanf("%s", temp);
-		 strcpy(temp_text->s, temp); 
-	         scanf("%s", temp);
-		 strcpy(temp_text->t, temp);
+		 if (strcmp(inst[i].name, "jr") == 0)
+		 {
+		    scanf("%s", temp);
+		    strcpy(temp_text->s, temp);
+		    strcpy(temp_text->t, "0");
+		    strcpy(temp_text->d, "0");
+		 } else {
+		    scanf("%s", temp);
+		    strcpy(temp_text->d, temp);
+		    scanf("%s", temp);
+		    strcpy(temp_text->s, temp); 
+		    scanf("%s", temp);
+		    strcpy(temp_text->t, temp);
+		 }
 		 temp_text->address = address;
 		 struct Text* cur = Texts;
 		 while (cur->next!=NULL)
@@ -179,7 +202,7 @@ void read_asm () {
 		    cur = cur->next;
 		 }
 		  cur->next = temp_text;
-		 }	
+	        }	
 		else if (inst[i].type == 'I')
 		{
 		 temp_text->s = (char*)malloc(sizeof(char));
@@ -187,11 +210,42 @@ void read_asm () {
 		 temp_text->d = (char*)malloc(sizeof(char));	 
 		 temp_text->idx = i;
 		 scanf("%s", temp);
-		 strcpy(temp_text->s, temp);
-		 scanf("%s", temp);
-		 strcpy(temp_text->t, temp);
-		 scanf("%s", temp);
-		 strcpy(temp_text->d, temp);
+		 if (strcmp(inst[i].name, "beq") == 0 || strcmp(inst[i].name, "bne") == 0)
+		 {
+		    strcpy(temp_text->s, temp);
+		 }
+		 else
+		 {
+		    strcpy(temp_text->t, temp);
+		 }
+		 if (strcmp(inst[i].name, "lui")!=0)
+		 {
+		    scanf("%s", temp);
+		    if (strcmp(inst[i].name, "beq") == 0 || strcmp(inst[i].name, "bne") == 0)
+		    {
+			strcpy(temp_text->t, temp);
+		    }
+		    else if (strcmp(inst[i].name, "lw") == 0 || strcmp(inst[i].name, "sw") == 0)
+		    {
+			char *ptr = strtok(temp, "()");
+			strcpy(temp_text->d, ptr);
+			ptr = strtok(NULL, "()");
+			strcpy(temp_text->s, ptr);
+		    }
+		    else
+		    {	
+			strcpy(temp_text->s, temp);
+		    }
+		 }
+		 else
+		 {
+		    strcpy(temp_text->s, "0");
+		 }
+		 if (strcmp(inst[i].name, "lw") != 0 && strcmp(inst[i].name, "sw") != 0)
+		 {
+		    scanf("%s", temp);
+		    strcpy(temp_text->d, temp);
+		 }
 		 temp_text->address = address;
 		 struct Text* cur = Texts;
 		 while (cur->next!=NULL)
@@ -300,7 +354,7 @@ void read_asm () {
 		}
 	  }  			
        }
-    }
+     }
     textsize = address - 0x400000;
 }
 
@@ -332,15 +386,15 @@ void subst_asm_to_num () {
        }
        else if(inst[text->idx].type == 'I')
        {
-	if (text->s[0] == '$')
+	if (text->t[0] == '$')
 	{
-	   char *ptr = strtok(text->s, "$,");
-	   strcpy(text->s, ptr);
-	}
-        if (text->t[0] == '$')
-        {
 	   char *ptr = strtok(text->t, "$,");
 	   strcpy(text->t, ptr);
+	}
+        if (text->s[0] == '$')
+        {
+	   char *ptr = strtok(text->s, "$,");
+	   strcpy(text->s, ptr);
 	}
 	if (atoi(text->d) == 0)
 	{
@@ -486,13 +540,22 @@ void print_bits () {
     }
 
     for (sym = Symbols->next; sym != NULL; sym = sym->next) {
-        
+        struct Data* cur = sym->first;
+	if (cur != NULL)
+	{
+            printf("%s", NumToBits(cur->value, 32));
+	    while (cur->next!=NULL)
+	    {  
+	       cur = cur->next;
+	       printf("%s", NumToBits(cur->value, 32));
+	    }
+	}
     }
     printf("\n");
 }
 
 /*
- * main function
+ * min function
  */ 
 int main (int argc, char* argv[]) {
 
